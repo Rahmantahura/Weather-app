@@ -1,32 +1,68 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Gauge, Wind, Sun, Droplets, Eye, Cloud } from 'lucide-react';
 
-// Keeping API Key as you had it
+
 const API_KEY = "d0f4be59bdef1b44e117cc4aa681858c"
 
-// --- FIX 1: Defined ForecastCard as a proper, functional component with its necessary return JSX. ---
-// This component correctly ACCEPTS the props (day, icon, max, min).
-function ForecastCard ({ day, icon, max, min }) {
-    // The icon URL logic is correct.
-    const iconUrl = `https://openweathermap.org/img/wn/${icon}@2x.png`;
+const formatTime = (timeStamp) => {
+     const date = new Date(timeStamp * 1000);
+      return date.toLocaleString('en-US', { hour:'numeric', minute:'numeric', hour12:true});
+}
+
+const getHighlightedIcons = (title) => {
+  switch (title) {
+    case 'Air Pressure':
+      return <Gauge className="size-10 text-gray-500" />;
+
+    case 'Wind Speed':
+    return <Wind className="size-10 text-gray-500" />;
+
+    case 'Sunrise':
+    return <Sun className="size-10 text-gray-500" />;
+
+    case 'Humidity':
+    return <Droplets className="size-10 text-gray-500" />;
+
+    case 'Visibility':
+    return <Eye className="size-10 text-gray-500" />;
+
+    case 'Cloudiness':
+    return <Cloud className="size-10 text-gray-500" />;
     
+  }
+}
+function ForecastCard ({ day, icon, max, min }) {
+    const iconUrl = `https://openweathermap.org/img/wn/${icon}@2x.png`;
+  
     return (
-        // Added minimal, functional structure to ensure it renders correctly
-        <div className="flex flex-col items-center justify-center p-2 bg-white rounded-2xl shadow-lg transition-shadow duration-300 min-w-[100px] hover:bg-[#e5e7eb] cursor:pointer">
+        <div className="flex flex-col items-center justify-center p-2 bg-white rounded-2xl shadow-lg transition-shadow duration-300 min-w-[100px] hover:bg-[#e5e7eb] cursor-pointer">
             <span className="text-sm font-semibold text-gray-500">{day}</span>
-            {/* The icon prop is correctly used here */}
             <img src={iconUrl} alt="Weather icon" className="w-12 h-12 my-1" />
             <div className="flex flex-col items-center">
-                {/* The max/min props are correctly used here */}
                 <span className="text-lg font-bold text-gray-900">{max}°C</span>
                 <span className="text-xs text-gray-400">{min}°C</span>
             </div>
         </div>
     );
 }
-// --- END FIX 1 ---
 
-// The SearchBar component handles the input and the search button
-// It correctly ACCEPTS the state value (city) and handler functions (handleCityChange, handleSearch)
+function HighlightCard ({ title, value, details }) {
+    const IconComponent = getHighlightedIcons(title) 
+        return (
+          <div className='flex flex-col justify-start items-start bg-white rounded-xl shadow-lg transition duration-300 w-full h-full p-3 cursor-pointer hover:bg-[#e5e7eb]'>
+            <div className="flex items-center space-x-2 mb-3">
+                {IconComponent} 
+                <span className="text-sm font-medium text-gray-500">{title}</span> 
+            </div>
+            <div className="flex items-end space-x-1">
+                <span className="text-3xl font-semibold text-gray-900">{value}</span> 
+                <span className="text-base font-medium text-gray-500">{details}</span> 
+            </div>
+          </div>
+        )
+}
+
+
 function SearchBar ({city, handleCityChange, handleSearch }) {
   return (
     // Container for the whole search bar
@@ -50,7 +86,7 @@ function SearchBar ({city, handleCityChange, handleSearch }) {
         value={city}
         onChange={handleCityChange}
         placeholder="Search for places..."
-        className="p-3 w-full pl-10 pr-40 text-black text-sm font-semibold bg-transparent focus:outline-none focus:ring-2 focus:ring-[#fee25c]"
+        className="p-3 w-full pl-10 pr-24 text-black text-sm font-semibold bg-transparent focus:outline-none focus:ring-2 focus:ring-[#e5e7eb]"
         onKeyDown={(e) => { // Allow search on Enter key press
           if (e.key === 'Enter') {
             handleSearch();
@@ -80,6 +116,7 @@ function App() {
   const [searchTrigger, setSearchTrigger] = useState(0) // State to trigger fetch on button click
   const [currentTime, setCurrentTime] = useState(new Date())
   const [dailyForecast, setDailyForecast] = useState([])
+  const [highlights, setHighlights] = useState([])
 
   // Data processing function (logic untouched)
   const weeklyData = useCallback((data) => {
@@ -105,14 +142,37 @@ function App() {
       return {
         day: dayName,
         icon: icon,
-        max: Math.round(maxTemp), // Rounding for display
-        min: Math.round(minTemp), // Rounding for display
+        max: Math.round(maxTemp), 
+        min: Math.round(minTemp), 
       };
     });
 
     setDailyForecast(finalDailyForecasts)
 
   },[setDailyForecast]);
+
+// Function to display the highlights area
+
+const highlightData = (data) => {
+  const currentData = data.list[0];
+
+  const Pressure = currentData.main.pressure
+  const WindSpeed = currentData.wind.speed
+  const Sunrise = data.city.sunrise
+  const Humidity = currentData.main.humidity
+  const Visibility = currentData.visibility 
+  const Cloudiness = currentData.clouds.all
+
+  return [
+    // FIX: Added units for hPa, % for humidity/cloudiness, and cleaned up Wind/Sunrise units
+    { title: 'Air Pressure',  value: Pressure, details: 'hPa'},
+    { title: 'Wind Speed',  value: Math.round(WindSpeed * 3.6), details:'Km/h'},
+    { title: 'Sunrise',  value: formatTime(Sunrise), details: ''}, // formatTime includes AM/PM
+    { title: 'Humidity',  value: Humidity, details: '%'},
+    { title: 'Visibility',  value: Math.round(Visibility / 1000), details: 'Km'},
+    { title: 'Cloudiness',  value: Cloudiness, details: '%'},
+  ]
+}
 
   // Function to trigger the API fetch (runs on button click or Enter key)
   const handleSearch = () => {
@@ -160,6 +220,7 @@ function App() {
         const data = await response.json();
         setWeatherData(data);
         weeklyData(data)
+        setHighlights(highlightData(data))
       } catch (error) {
         setIsError(error.message);
         setWeatherData(null);
@@ -181,6 +242,7 @@ function App() {
   }, [])
 
 
+
   const currentForecast = weatherData && weatherData.list && weatherData.list[0] ? weatherData.list[0] : null
 
 
@@ -200,11 +262,11 @@ function App() {
         </header>
         
         {/* Main Content Area for Data, Loading, or Error */}
-        <div className=" bg-white text-center text-gray-700 flex flex-col items-start justify-start w-full flex-grow">
+        <div className=" bg-white text-center text-gray-700 flex flex-col items-start justify-start w-full flex-grow rounded-lg">
 
           {/* 1. Loading Spinner Conditional */}
           {isLoading && (
-            <div className='flex justify-center items-center space-x-3 text-[#fee25c]'>
+            <div className='flex justify-center items-center space-x-3 text-[#e5e7eb]'>
               <svg 
                 className="animate-spin h-8 w-8" 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -220,14 +282,15 @@ function App() {
 
           {/* 2. Error Message Conditional */}
           {!isLoading && isError && (
-            <div className='text-red-700 font-semibold p-4 bg-red-100 rounded-xl border border-red-300'>
+            <div className='text-red-700 font-semibold p-4 bg-red-100 rounded-xl border border-red-300 overflow-auto
+             flex items-center justify-center mt-10 w-full break-words'>
               <p>{isError}</p>
             </div>
           )}
           
           {/* 3. Weather Data Display Conditional (The Weather Card) */}
           {!isLoading && !isError && currentForecast && (
-            <div className="flex flex-col bg-white w-auto h-full">
+            <div className="flex flex-col bg-white rounded-lg px-2 w-auto h-full">
               
               {/* Temperature and Icon */}
               <div className="flex items-start">
@@ -243,7 +306,7 @@ function App() {
                 </p>
                 <div className='flex space-x-1'>
                 <span className='text-black-900 font-semibold text-lg'>{currentTime.toLocaleDateString('en-US', {weekday:'long'})},</span>
-                <span className='text-[#c0c0c0] font-semibold text-lg pb-10 '>{currentTime.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false})}</span></div>
+                <span className='text-[#c7c7c6] font-semibold text-lg pb-10 '>{currentTime.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false})}</span></div>
                 <p className="text-sm capitalize text-black-500 font-medium pb-1">
                 {currentForecast?.weather[0].description}
               </p>
@@ -262,32 +325,27 @@ function App() {
 
           {/* 4. Default Message */}
           {!isLoading && !isError && !currentForecast && (
-            <div className='h-full flex items-center justify-center'>
+            <div className='h-full flex items-center justify-center w-full'>
             <p className="text-gray-500 p-8">Welcome! Enter a city above and hit search.</p>
             </div>
           )}
 
         </div>
       </div>
-      <div className="bg-[#f7f6f9] w-screen h-full rounded-r-lg">
-        <header className="flex items-center justify-between p-5">
-          <div><h2 className="font-semibold text-lg">Day Outlook</h2></div>
+      <div className="bg-[#f7f6f9] w-full h-full rounded-r-lg">
+        <header className="flex items-center justify-between px-5 pt-2">
+          <div><h2 className="font-semibold text-lg pl-4">Day Outlook</h2></div>
           <div className='flex items-center justify-center gap-x-5'>
           <button className="p-2 rounded-full hover:bg-black hover:text-white">℃</button>
           <button className="p-2 rounded-full hover:bg-black hover:text-white">°F</button>
-          <button className="p-2 rounded-full hover:bg-black hover:text-white h-auto w-auto"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" class='size-5'>
+          <button className="p-2 rounded-full hover:bg-black hover:text-white h-auto w-auto"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" class='size-10'>
   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
 </svg>
 </button>
 </div>
-        </header>
-
-        
-        {/* --- FIX 2: Corrected the map logic to properly render ForecastCard components. --- */}
-        {dailyForecast.length > 0 && (
-          <div className="flex items-center justify-center p-2">
-            <div className="flex justify-center flex-nowrap space-x-8 overflow-x-auto pb-4 w-full">
-            {dailyForecast.map((daySummary, index) => (
+</header>{dailyForecast.length > 0 && (
+          <div className="flex flex-col items-center justify-center mt-0">
+<div className="flex justify-center flex-nowrap space-x-8 overflow-x-auto pb-4 pt-2 w-full mb-1">{dailyForecast.map((daySummary, index) => (
               // Props are correctly PASSED DOWN from the mapped item to the ForecastCard component
               <ForecastCard
                 key={index}
@@ -297,12 +355,26 @@ function App() {
                 min={daySummary.min} 
               />
             ))}
-            </div>
-          </div>
+ </div>
+</div>
         )}
-
-      </div>
-    </div>
+        {highlights.length > 0 && (
+         <div className='px-10 pb-2'>
+                <h2 className="font-semibold text-xl mb-4">Today's Highlights</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  {highlights.map((item, index) => (
+                  <HighlightCard
+                  key={index}
+                  title={item.title}
+                  value={item.value}
+                  details={item.details}
+                  />
+                ))}
+               </div>
+               </div>
+               )}
+</div>
+</div>
   );
 }
 export default App;
